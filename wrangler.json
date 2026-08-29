@@ -1,8 +1,10 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mcnab-store-inventory",
-  "pages_build_output_dir": "./client",
+  "main": "functions/api/[[path]].js",
   "compatibility_date": "2026-08-01",
+  "assets": {
+    "directory": "./client"
+  },
   "d1_databases": [
     {
       "binding": "DB",
