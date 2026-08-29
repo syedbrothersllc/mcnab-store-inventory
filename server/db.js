@@ -1,5 +1,12 @@
+const fs = require('fs');
 const path = require('path');
-const dbPath = path.join(__dirname, 'inventory.db');
+
+const dataDir = process.env.DATA_DIR || __dirname;
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+const dbPath = path.join(dataDir, 'inventory.db');
 
 let db;
 

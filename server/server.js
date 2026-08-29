@@ -549,7 +549,8 @@ app.post('/api/pricebook/upload', upload.single('pricebook_file'), (req, res) =>
     const fileContent = fs.readFileSync(filePath, 'utf8');
     
     // Save as pricebook.csv
-    fs.writeFileSync(path.join(__dirname, 'pricebook.csv'), fileContent, 'utf8');
+    const dataDir = process.env.DATA_DIR || __dirname;
+    fs.writeFileSync(path.join(dataDir, 'pricebook.csv'), fileContent, 'utf8');
     fs.unlinkSync(filePath);
 
     // Import into DB

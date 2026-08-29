@@ -1,10 +1,15 @@
 services:
   - type: web
     name: mcnab-store-inventory
-    env: node
+    env: docker
     plan: free
-    buildCommand: npm install
-    startCommand: node server/server.js
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: PORT
         value: 3000
+      - key: DATA_DIR
+        value: /app/data
+    disk:
+      name: inventory-data
+      mountPath: /app/data
+      sizeGB: 1

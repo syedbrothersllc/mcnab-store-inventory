@@ -183,9 +183,13 @@ function importFromContent(fileContent) {
 
 // Run directly if invoked via node import_pricebook.js
 if (require.main === module) {
-  const pricebookPath = path.join(__dirname, 'pricebook.csv');
-  if (fs.existsSync(pricebookPath)) {
-    const fileContent = fs.readFileSync(pricebookPath, 'utf8');
+  const dataDir = process.env.DATA_DIR || __dirname;
+  const pricebookPath = path.join(dataDir, 'pricebook.csv');
+  const fallbackPath = path.join(__dirname, 'pricebook.csv');
+  const targetPath = fs.existsSync(pricebookPath) ? pricebookPath : fallbackPath;
+
+  if (fs.existsSync(targetPath)) {
+    const fileContent = fs.readFileSync(targetPath, 'utf8');
     const result = importFromContent(fileContent);
     console.log(`Imported ${result.count} items into database.`);
   }
