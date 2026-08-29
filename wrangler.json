@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mcnab-store-inventory",
+  "pages_build_output_dir": "./client",
+  "compatibility_date": "2026-08-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "storestock-db",
+      "database_id": "storestock-db"
+    }
+  ]
+}
