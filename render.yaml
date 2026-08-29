@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: mcnab-store-inventory
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/server.js
+    envVars:
+      - key: PORT
+        value: 3000
+    disk:
+      name: inventory-storage
+      mountPath: /app/server
+      sizeGB: 1

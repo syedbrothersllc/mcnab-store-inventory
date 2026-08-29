@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>StoreStock - Convenience Store Inventory</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- HTML5 QR Code & Barcode Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-20 font-sans">
+
+  <!-- TOP HEADER -->
+  <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-40 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-blue-600 p-2 rounded-lg text-white">
+          <i class="fa-solid fa-boxes-stacked text-xl"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight text-white">StoreStock</h1>
+          <p class="text-xs text-slate-400">Convenience Inventory & POS Sync</p>
+        </div>
+      </div>
+
+      <!-- Live Quick Stats -->
+      <div class="hidden sm:flex items-center space-x-4 text-xs">
+        <div class="bg-slate-700/60 px-3 py-1.5 rounded-lg border border-slate-600">
+          <span class="text-slate-400 block">Total SKUs</span>
+          <span id="stat-skus" class="font-bold text-sm text-blue-400">0</span>
+        </div>
+        <div class="bg-slate-700/60 px-3 py-1.5 rounded-lg border border-slate-600">
+          <span class="text-slate-400 block">Total Units</span>
+          <span id="stat-units" class="font-bold text-sm text-emerald-400">0</span>
+        </div>
+        <div id="stat-low-box" class="bg-amber-950/40 px-3 py-1.5 rounded-lg border border-amber-800/60 cursor-pointer" onclick="filterLowStock()">
+          <span class="text-amber-400 block"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Low Stock</span>
+          <span id="stat-low" class="font-bold text-sm text-amber-400">0</span>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center space-x-2">
+        <button onclick="openModal('add-item-modal')" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-2 rounded-lg font-medium transition flex items-center">
+          <i class="fa-solid fa-plus mr-1.5"></i>Add SKU
+        </button>
+        <button onclick="switchTab('scan-tab')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-2 rounded-lg font-medium transition flex items-center">
+          <i class="fa-solid fa-camera mr-1.5"></i>Scan
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MOBILE STATS BAR (Visible on small screens) -->
+  <div class="sm:hidden bg-slate-800/80 border-b border-slate-700/60 px-4 py-2 flex items-center justify-between text-xs text-slate-300">
+    <div>SKUs: <span id="mobile-stat-skus" class="font-bold text-blue-400">0</span></div>
+    <div>Units: <span id="mobile-stat-units" class="font-bold text-emerald-400">0</span></div>
+    <div onclick="filterLowStock()" class="text-amber-400 cursor-pointer font-medium">
+      <i class="fa-solid fa-triangle-exclamation mr-1"></i>Low: <span id="mobile-stat-low" class="font-bold">0</span>
+    </div>
+  </div>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="bg-slate-800 border-b border-slate-700/80 px-2 sm:px-4">
+    <div class="max-w-7xl mx-auto flex space-x-1 sm:space-x-2 overflow-x-auto py-2 scrollbar-none">
+      <button onclick="switchTab('inventory-tab')" id="tab-btn-inventory-tab" class="tab-btn active font-medium text-xs sm:text-sm px-3.5 py-2 rounded-lg transition whitespace-nowrap">
+        <i class="fa-solid fa-list mr-1.5"></i>Inventory Catalog
+      </button>
+      <button onclick="switchTab('scan-tab')" id="tab-btn-scan-tab" class="tab-btn font-medium text-xs sm:text-sm px-3.5 py-2 rounded-lg transition whitespace-nowrap">
+        <i class="fa-solid fa-barcode mr-1.5"></i>Scan & Receive
+      </button>
+      <button onclick="switchTab('pos-tab')" id="tab-btn-pos-tab" class="tab-btn font-medium text-xs sm:text-sm px-3.5 py-2 rounded-lg transition whitespace-nowrap">
+        <i class="fa-solid fa-file-invoice-dollar mr-1.5"></i>POS Sales CSV Import
+      </button>
+      <button onclick="switchTab('audit-tab')" id="tab-btn-audit-tab" class="tab-btn font-medium text-xs sm:text-sm px-3.5 py-2 rounded-lg transition whitespace-nowrap">
+        <i class="fa-solid fa-clipboard-check mr-1.5"></i>Stock Audit Mode
+      </button>
+      <button onclick="switchTab('sheets-tab')" id="tab-btn-sheets-tab" class="tab-btn font-medium text-xs sm:text-sm px-3.5 py-2 rounded-lg transition whitespace-nowrap">
+        <i class="fa-solid fa-table-cells mr-1.5"></i>Google Sheets & Logs
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-4 py-4">
+
+    <!-- 1. INVENTORY CATALOG TAB -->
+    <section id="inventory-tab" class="tab-content block">
+      
+      <!-- Search & Filters -->
+      <div class="bg-slate-800 p-3 sm:p-4 rounded-xl border border-slate-700 shadow-md mb-4">
+        
+        <!-- Search Bar -->
+        <div class="relative mb-3">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400"></i>
+          <input type="text" id="search-input" onkeyup="debounceSearch()" placeholder="Search by name, brand, flavor, barcode, or SKU..." 
+                 class="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <!-- Category Pills -->
+        <div class="mb-2">
+          <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold block mb-1.5">Categories:</span>
+          <div id="category-pills" class="flex flex-wrap gap-1.5">
+            <!-- Dynamic Category Pills -->
+          </div>
+        </div>
+
+        <!-- Brand Sub-Filters (Especially for Vapes, Cigarettes, Beer) -->
+        <div id="brand-filter-wrapper" class="hidden pt-2 border-t border-slate-700/60 mt-2">
+          <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold block mb-1.5">Brands:</span>
+          <div id="brand-pills" class="flex flex-wrap gap-1.5">
+            <!-- Dynamic Brand Pills -->
+          </div>
+        </div>
+
+        <!-- Low Stock Filter Toggle -->
+        <div class="flex items-center justify-between pt-2 border-t border-slate-700/60 mt-2 text-xs">
+          <label class="flex items-center space-x-2 cursor-pointer text-slate-300">
+            <input type="checkbox" id="low-stock-checkbox" onchange="loadItems()" class="rounded border-slate-700 text-blue-600 focus:ring-0 bg-slate-900">
+            <span>Show Low Stock Only (<i class="fa-solid fa-triangle-exclamation text-amber-400 mr-1"></i>)</span>
+          </label>
+          <button onclick="resetFilters()" class="text-blue-400 hover:text-blue-300 text-xs">Reset Filters</button>
+        </div>
+
+      </div>
+
+      <!-- Items Grid / Table -->
+      <div id="items-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <!-- Dynamic Items Cards -->
+      </div>
+
+    </section>
+
+    <!-- 2. SCAN & RECEIVE TAB (Camera & Case Barcodes) -->
+    <section id="scan-tab" class="tab-content hidden">
+      <div class="max-w-2xl mx-auto space-y-4">
+        
+        <!-- Scanner Card -->
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md">
+          <h2 class="font-bold text-base text-white mb-2 flex items-center">
+            <i class="fa-solid fa-barcode text-emerald-400 mr-2"></i>Phone Camera Barcode Scanner
+          </h2>
+          <p class="text-xs text-slate-400 mb-3">Scan an individual item UPC or a wholesale case barcode to add stock instantly.</p>
+
+          <!-- Camera Viewport -->
+          <div id="reader-wrapper" class="bg-slate-900 rounded-lg overflow-hidden border border-slate-700 relative min-h-[220px] flex items-center justify-center">
+            <div id="reader" class="w-full"></div>
+            <div id="scanner-placeholder" class="text-center p-6">
+              <i class="fa-solid fa-camera text-4xl text-slate-600 mb-2"></i>
+              <p class="text-xs text-slate-400 mb-3">Tap start camera to scan barcodes using your phone camera</p>
+              <button onclick="startScanner()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-lg">
+                Start Camera Scanner
+              </button>
+            </div>
+          </div>
+          
+          <div id="scanner-controls" class="hidden mt-3 flex justify-end">
+            <button onclick="stopScanner()" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-3 py-1.5 rounded-lg">
+              Stop Camera
+            </button>
+          </div>
+        </div>
+
+        <!-- Manual Barcode Input Fallback -->
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-md">
+          <h3 class="font-semibold text-sm text-slate-200 mb-2">Or Enter Barcode Manually:</h3>
+          <div class="flex space-x-2">
+            <input type="text" id="manual-barcode-input" placeholder="Type or scan UPC barcode..." 
+                   class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                   onkeydown="if(event.key==='Enter') lookupManualBarcode()">
+            <button onclick="lookupManualBarcode()" class="bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs px-4 py-2 rounded-lg">
+              Lookup
+            </button>
+          </div>
+        </div>
+
+        <!-- Scanned Item Result Modal/Card -->
+        <div id="scan-result-card" class="hidden bg-slate-800 p-4 rounded-xl border border-emerald-500/50 shadow-xl space-y-3">
+          <div class="flex items-start justify-between">
+            <div>
+              <span id="scan-match-badge" class="bg-emerald-900/60 text-emerald-300 text-xs px-2 py-0.5 rounded border border-emerald-700 uppercase font-semibold">Matched Item</span>
+              <h3 id="scan-item-name" class="font-bold text-lg text-white mt-1">--</h3>
+              <p id="scan-item-brand" class="text-xs text-slate-400">--</p>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block">Current Stock</span>
+              <span id="scan-item-stock" class="font-bold text-xl text-blue-400">0</span>
+            </div>
+          </div>
+
+          <!-- Price & Card Surcharge Box (+4%) -->
+          <div class="bg-slate-900/80 p-3 rounded-lg border border-slate-700 grid grid-cols-2 sm:grid-cols-3 gap-2 text-center text-xs">
+            <div class="bg-slate-800 p-2 rounded border border-slate-700">
+              <span class="text-slate-400 block text-[10px] uppercase font-semibold">Cash Retail Price</span>
+              <span id="scan-cash-price" class="font-bold text-sm text-emerald-400">$0.00</span>
+            </div>
+            <div class="bg-indigo-950/60 p-2 rounded border border-indigo-700/80">
+              <span class="text-indigo-300 block text-[10px] uppercase font-semibold"><i class="fa-solid fa-credit-card mr-1"></i>Card Price (+4%)</span>
+              <span id="scan-card-price" class="font-bold text-sm text-indigo-300">$0.00</span>
+            </div>
+            <div class="bg-slate-800 p-2 rounded border border-slate-700 col-span-2 sm:col-span-1">
+              <span class="text-slate-400 block text-[10px] uppercase font-semibold">Unit Cost</span>
+              <span id="scan-cost-price" class="font-bold text-sm text-slate-300">$0.00</span>
+            </div>
+          </div>
+
+          <!-- Shared Barcode Selector Prompt (If item has shared barcode) -->
+          <div id="shared-barcode-selector" class="hidden bg-amber-950/50 p-3 rounded-lg border border-amber-800/80 space-y-2">
+            <p class="text-xs font-semibold text-amber-300 flex items-center">
+              <i class="fa-solid fa-circle-exclamation mr-1.5 text-amber-400"></i>Shared Barcode Detected! (Single vs Pack)
+            </p>
+            <p class="text-xs text-amber-200/80">This barcode is used for both single units and multi-packs. Select what you scanned:</p>
+            <div class="grid grid-cols-2 gap-2 pt-1">
+              <button type="button" onclick="selectSharedType('unit')" id="btn-shared-unit" class="bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded font-medium border border-slate-500">
+                Single Unit (1)
+              </button>
+              <button type="button" onclick="selectSharedType('pack')" id="btn-shared-pack" class="bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded font-medium border border-slate-500">
+                Multi-Pack (<span id="shared-pack-qty-label">6</span>)
+              </button>
+            </div>
+          </div>
+
+          <!-- Case Multiplier Info -->
+          <div id="case-barcode-info" class="hidden bg-blue-950/40 p-3 rounded-lg border border-blue-800/80">
+            <p class="text-xs text-blue-300 font-semibold flex items-center">
+              <i class="fa-solid fa-box text-blue-400 mr-1.5"></i>Wholesale Case Barcode Detected!
+            </p>
+            <p class="text-xs text-slate-300 mt-1">Pack Size: <span id="case-pack-size" class="font-bold text-white">0</span> units per case.</p>
+          </div>
+
+          <!-- Quantity Intake Form -->
+          <div class="bg-slate-900 p-3 rounded-lg border border-slate-700 space-y-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label id="label-qty-type" class="block text-xs font-medium text-slate-400 mb-1">Cases Received:</label>
+                <input type="number" id="input-cases-received" value="1" min="1" oninput="calculateTotalIntake()"
+                       class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white font-bold text-center focus:outline-none focus:border-emerald-500">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Total Stock Added:</label>
+                <div id="calculated-units-display" class="bg-emerald-950/60 border border-emerald-800 rounded-lg px-3 py-2 text-sm font-bold text-emerald-400 text-center">
+                  +0 units
+                </div>
+              </div>
+            </div>
+
+            <button onclick="commitDeliveryReceive()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm py-2.5 rounded-lg transition shadow-lg flex items-center justify-center">
+              <i class="fa-solid fa-circle-check mr-2"></i>Confirm & Add Stock
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 3. POS SALES CSV IMPORT & REVIEW TAB -->
+    <section id="pos-tab" class="tab-content hidden">
+      <div class="max-w-4xl mx-auto space-y-4">
+        
+        <!-- Upload Card -->
+        <div class="bg-slate-800 p-4 sm:p-6 rounded-xl border border-slate-700 shadow-md">
+          <h2 class="font-bold text-base sm:text-lg text-white mb-1 flex items-center">
+            <i class="fa-solid fa-file-csv text-blue-400 mr-2"></i>POS Sales CSV Import & Review
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-400 mb-4">
+            Upload your POS sales CSV report. The app will generate a **Diff Review** highlighting price changes, new items, and stock deductions for your approval before updating Google Sheets.
+          </p>
+
+          <div class="border-2 border-dashed border-slate-600 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition bg-slate-900/50" onclick="document.getElementById('pos-file-input').click()">
+            <input type="file" id="pos-file-input" accept=".csv" class="hidden" onchange="handlePOSFileUpload(event)">
+            <i class="fa-solid fa-cloud-arrow-up text-4xl text-blue-400 mb-2"></i>
+            <p class="text-sm font-medium text-slate-200">Click to select POS Sales CSV file</p>
+            <p class="text-xs text-slate-500 mt-1">Supports Square, Clover, Lightspeed, Toast, or standard POS CSV exports</p>
+          </div>
+        </div>
+
+        <!-- POS DIFF REVIEW MODAL / CONTAINER -->
+        <div id="pos-diff-container" class="hidden bg-slate-800 p-4 sm:p-6 rounded-xl border border-slate-700 shadow-xl space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+            <div>
+              <h3 class="font-bold text-base text-white flex items-center">
+                <i class="fa-solid fa-eye text-amber-400 mr-2"></i>POS CSV Diff & Approval Review
+              </h3>
+              <p id="pos-filename-display" class="text-xs text-slate-400">File: --</p>
+            </div>
+            <button onclick="cancelPOSReview()" class="text-xs text-slate-400 hover:text-slate-200">Cancel</button>
+          </div>
+
+          <!-- Section 1: Sales Deductions -->
+          <div id="pos-diff-sales-section" class="space-y-2">
+            <h4 class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-blue-500 mr-1.5"></span>
+              Sales Deductions (<span id="count-sales-deductions">0</span> items matched)
+            </h4>
+            <div class="max-h-48 overflow-y-auto border border-slate-700 rounded-lg">
+              <table class="w-full text-xs text-left text-slate-300">
+                <thead class="bg-slate-900 text-slate-400 uppercase">
+                  <tr>
+                    <th class="p-2">Item</th>
+                    <th class="p-2 text-center">Current Stock</th>
+                    <th class="p-2 text-center text-rose-400">Sold</th>
+                    <th class="p-2 text-center text-emerald-400">New Stock</th>
+                  </tr>
+                </thead>
+                <tbody id="pos-sales-tbody" class="divide-y divide-slate-700/60">
+                  <!-- Dynamic Sales Rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section 2: Price Updates (Highlighted Yellow) -->
+          <div id="pos-diff-prices-section" class="space-y-2">
+            <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400 mr-1.5"></span>
+              Price Updates Detected (<span id="count-price-updates">0</span> changes)
+            </h4>
+            <div class="max-h-40 overflow-y-auto border border-amber-900/60 rounded-lg bg-amber-950/20">
+              <table class="w-full text-xs text-left text-amber-200">
+                <thead class="bg-amber-950/60 text-amber-400 uppercase">
+                  <tr>
+                    <th class="p-2">Apply</th>
+                    <th class="p-2">Item</th>
+                    <th class="p-2 text-center">Current Price</th>
+                    <th class="p-2 text-center text-amber-300 font-bold">New POS Price</th>
+                  </tr>
+                </thead>
+                <tbody id="pos-prices-tbody" class="divide-y divide-amber-900/40">
+                  <!-- Dynamic Price Update Rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Section 3: New Items in POS (Highlighted Green) -->
+          <div id="pos-diff-new-section" class="space-y-2">
+            <h4 class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 mr-1.5"></span>
+              New Items Found in POS (<span id="count-new-items">0</span> items)
+            </h4>
+            <div class="max-h-40 overflow-y-auto border border-emerald-900/60 rounded-lg bg-emerald-950/20">
+              <table class="w-full text-xs text-left text-emerald-200">
+                <thead class="bg-emerald-950/60 text-emerald-400 uppercase">
+                  <tr>
+                    <th class="p-2">Add</th>
+                    <th class="p-2">Name</th>
+                    <th class="p-2">Barcode</th>
+                    <th class="p-2 text-right">Price</th>
+                  </tr>
+                </thead>
+                <tbody id="pos-new-tbody" class="divide-y divide-emerald-900/40">
+                  <!-- Dynamic New Item Rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Commit Button -->
+          <div class="pt-2 flex justify-end">
+            <button onclick="commitPOSImport()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-6 py-2.5 rounded-lg shadow-lg flex items-center">
+              <i class="fa-solid fa-check-double mr-2"></i>Approve & Commit Changes to Inventory
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 4. STOCK AUDIT MODE TAB -->
+    <section id="audit-tab" class="tab-content hidden">
+      <div class="max-w-4xl mx-auto space-y-4">
+        
+        <div class="bg-slate-800 p-4 sm:p-6 rounded-xl border border-slate-700 shadow-md">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="font-bold text-base sm:text-lg text-white flex items-center">
+                <i class="fa-solid fa-clipboard-check text-purple-400 mr-2"></i>Daily / Weekly Stock Audit Mode
+              </h2>
+              <p class="text-xs text-slate-400">Perform physical stock counts aisle-by-aisle. Highlights variance (loss/shrinkage).</p>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+              <select id="audit-category-select" onchange="renderAuditList()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white">
+                <option value="ALL">All Categories</option>
+                <!-- Dynamic categories -->
+              </select>
+              <button onclick="commitAuditReconciliation()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center">
+                <i class="fa-solid fa-save mr-1.5"></i>Commit Audit
+              </button>
+            </div>
+          </div>
+
+          <!-- Audit Table -->
+          <div class="overflow-x-auto border border-slate-700 rounded-lg">
+            <table class="w-full text-xs text-left text-slate-300">
+              <thead class="bg-slate-900 text-slate-400 uppercase">
+                <tr>
+                  <th class="p-3">Category & Brand</th>
+                  <th class="p-3">Item Name</th>
+                  <th class="p-3 text-center">System Stock</th>
+                  <th class="p-3 text-center">Physical Count</th>
+                  <th class="p-3 text-center">Variance</th>
+                </tr>
+              </thead>
+              <tbody id="audit-tbody" class="divide-y divide-slate-700/60">
+                <!-- Dynamic Audit Rows -->
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 5. GOOGLE SHEETS & LOGS TAB -->
+    <section id="sheets-tab" class="tab-content hidden">
+      <div class="max-w-4xl mx-auto space-y-6">
+        
+        <!-- Upload Pricebook CSV Card -->
+        <div class="bg-slate-800 p-4 sm:p-6 rounded-xl border border-slate-700 shadow-md space-y-3">
+          <h2 class="font-bold text-base sm:text-lg text-white flex items-center">
+            <i class="fa-solid fa-file-csv text-blue-400 mr-2"></i>Import & Export Store Pricebook CSV
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-400">
+            Upload your complete Pricebook CSV file to populate or refresh all ~3,000 store items, or export your updated inventory in the exact same POS CSV format for uploading to your register.
+          </p>
+
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <input type="file" id="pricebook-file-input" accept=".csv" class="hidden" onchange="uploadFullPricebook(event)">
+            <button onclick="document.getElementById('pricebook-file-input').click()" id="btn-upload-pricebook" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center transition shadow">
+              <i class="fa-solid fa-cloud-arrow-up mr-2"></i>Import Full Pricebook CSV File
+            </button>
+
+            <!-- Export in POS CSV Format -->
+            <a href="/api/export/pos-pricebook" download class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center transition shadow">
+              <i class="fa-solid fa-file-export mr-2"></i>Export POS-Formatted Pricebook CSV
+            </a>
+          </div>
+
+          <!-- Animated Upload Progress Bar / Status -->
+          <div id="pricebook-progress-wrapper" class="hidden bg-slate-900/80 p-3 rounded-lg border border-slate-700 flex items-center space-x-3">
+            <div id="pricebook-spinner" class="animate-spin text-blue-400 text-lg">
+              <i class="fa-solid fa-circle-notch"></i>
+            </div>
+            <div class="text-xs">
+              <span id="pricebook-status-text" class="font-bold text-slate-200">Processing Pricebook CSV...</span>
+              <p id="pricebook-status-subtext" class="text-[11px] text-slate-400">Updating items, prices, and stock counts...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Google Sheets Export & Sync Card -->
+        <div class="bg-slate-800 p-4 sm:p-6 rounded-xl border border-slate-700 shadow-md">
+          <h2 class="font-bold text-base sm:text-lg text-white mb-2 flex items-center">
+            <i class="fa-solid fa-table text-emerald-400 mr-2"></i>Google Sheets Export & Sync
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-400 mb-4">
+            Download your inventory in standard CSV format formatted directly for Google Sheets or Excel, or set up automated 1-click webhook sync.
+          </p>
+
+          <div class="flex flex-wrap gap-3">
+            <a href="/api/export/csv" download class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center transition shadow">
+              <i class="fa-solid fa-file-excel mr-2"></i>Download Master Google Sheets CSV
+            </a>
+          </div>
+        </div>
+
+        <!-- Activity & Audit Logs -->
+        <div class="bg-slate-800 p-4 sm:p-6 rounded-xl border border-slate-700 shadow-md space-y-4">
+          <h3 class="font-bold text-base text-white flex items-center">
+            <i class="fa-solid fa-clock-rotate-left text-blue-400 mr-2"></i>Recent Activity Logs
+          </h3>
+
+          <!-- Delivery Log Sub-section -->
+          <div>
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recent Deliveries Received</h4>
+            <div class="max-h-40 overflow-y-auto border border-slate-700 rounded-lg">
+              <table class="w-full text-xs text-left text-slate-300">
+                <thead class="bg-slate-900 text-slate-400 uppercase">
+                  <tr>
+                    <th class="p-2">Date/Time</th>
+                    <th class="p-2">Item Name</th>
+                    <th class="p-2 text-center">Cases</th>
+                    <th class="p-2 text-center text-emerald-400">Units Added</th>
+                  </tr>
+                </thead>
+                <tbody id="log-deliveries-tbody" class="divide-y divide-slate-700/60">
+                  <!-- Dynamic Delivery Rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Audit Log Sub-section -->
+          <div>
+            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Recent Physical Stock Audits</h4>
+            <div class="max-h-40 overflow-y-auto border border-slate-700 rounded-lg">
+              <table class="w-full text-xs text-left text-slate-300">
+                <thead class="bg-slate-900 text-slate-400 uppercase">
+                  <tr>
+                    <th class="p-2">Date/Time</th>
+                    <th class="p-2">Item Name</th>
+                    <th class="p-2 text-center">System</th>
+                    <th class="p-2 text-center">Counted</th>
+                    <th class="p-2 text-center">Variance</th>
+                  </tr>
+                </thead>
+                <tbody id="log-audits-tbody" class="divide-y divide-slate-700/60">
+                  <!-- Dynamic Audit Rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ADD / EDIT SKU MODAL -->
+  <div id="add-item-modal" class="modal-backdrop hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-lg shadow-2xl overflow-hidden">
+      <div class="bg-slate-900 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+        <h3 id="modal-title" class="font-bold text-white text-base">Add New Inventory SKU</h3>
+        <button onclick="closeModal('add-item-modal')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="item-form" onsubmit="saveItem(event)" class="p-4 space-y-3 max-h-[80vh] overflow-y-auto text-xs">
+        <input type="hidden" id="form-id">
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Category*</label>
+            <input type="text" id="form-category" required list="category-options" placeholder="Vapes, Beer, Cigarettes..." 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+            <datalist id="category-options">
+              <option value="Vapes"></option>
+              <option value="Cigarettes"></option>
+              <option value="Cigars"></option>
+              <option value="Pre-Rolls"></option>
+              <option value="Beer"></option>
+              <option value="Drinks"></option>
+              <option value="Juices"></option>
+              <option value="Chips"></option>
+              <option value="Chocolates"></option>
+            </datalist>
+          </div>
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Brand*</label>
+            <input type="text" id="form-brand" required placeholder="ElfBar, Marlboro, Coors..." 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Item Name & Flavor / Size*</label>
+          <input type="text" id="form-name" required placeholder="Watermelon Ice 50mg, 12oz Can, 2.75oz Bag..." 
+                 class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Unit Barcode (UPC)</label>
+            <input type="text" id="form-unit-barcode" placeholder="Scan or type UPC..." 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Case Barcode (Master UPC)</label>
+            <input type="text" id="form-case-barcode" placeholder="Wholesale case UPC..." 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 bg-slate-900/60 p-2.5 rounded border border-slate-700/80">
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Pack Size (Units/Case)</label>
+            <input type="number" id="form-pack-size" value="10" min="1" 
+                   class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
+          <div class="flex items-center pt-4">
+            <label class="flex items-center space-x-2 cursor-pointer text-slate-300">
+              <input type="checkbox" id="form-shared-barcode" class="rounded border-slate-700 text-blue-600 bg-slate-800">
+              <span>Shared Barcode (Single/Pack)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Current Stock (Units)</label>
+            <input type="number" id="form-current-stock" value="0" min="0" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Reorder Level (Min Stock)</label>
+            <input type="number" id="form-reorder-level" value="5" min="0" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Cost Price ($)</label>
+            <input type="number" step="0.01" id="form-cost-price" value="0.00" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="block font-medium text-slate-300 mb-1">Retail Price ($)</label>
+            <input type="number" step="0.01" id="form-retail-price" value="0.00" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-700 flex justify-end space-x-2">
+          <button type="button" onclick="closeModal('add-item-modal')" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded">
+            Cancel
+          </button>
+          <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2 rounded">
+            Save SKU
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom JS Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
