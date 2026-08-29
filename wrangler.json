@@ -1,6 +1,6 @@
 {
   "name": "mcnab-store-inventory",
-  "main": "functions/api/[[path]].js",
+  "main": "index.js",
   "compatibility_date": "2026-08-01",
   "assets": {
     "directory": "./client"

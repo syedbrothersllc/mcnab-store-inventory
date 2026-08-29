@@ -2,11 +2,11 @@
   "name": "convenience-store-inventory",
   "version": "1.0.0",
   "description": "Mobile-first convenience store inventory tracker with Google Sheets sync, case barcode scanning, POS diff review, and vape flavor matrix.",
-  "main": "server/server.js",
+  "main": "index.js",
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "deploy": "wrangler pages deploy client"
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
