@@ -4,12 +4,5 @@
   "compatibility_date": "2026-08-01",
   "assets": {
     "directory": "./client"
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "storestock-db",
-      "database_id": "storestock-db"
-    }
-  ]
+  }
 }
