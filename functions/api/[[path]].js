@@ -17,7 +17,7 @@ export default {
         return jsonResponse({ success: false, error: "Database binding DB not found. Ensure D1 binding is configured." }, 500);
       }
 
-      // Auto-initialize D1 tables if not present
+      // Auto-initialize D1 tables safely
       await initD1Database(db);
 
       // -------------------------------------------------------------
@@ -256,25 +256,6 @@ export default {
         if (lines.length < 2) {
           return jsonResponse({ success: false, error: "CSV file is empty or missing header" }, 400);
         }
-
-        const parseCSVLine = (line) => {
-          const result = [];
-          let current = "";
-          let inQuotes = false;
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === "," && !inQuotes) {
-              result.push(current.trim());
-              current = "";
-            } else {
-              current += char;
-            }
-          }
-          result.push(current.trim());
-          return result;
-        };
 
         const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9_]/g, ""));
 
@@ -530,54 +511,83 @@ export default {
 // -------------------------------------------------------------
 
 async function initD1Database(db) {
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sku TEXT UNIQUE NOT NULL,
-      category TEXT NOT NULL,
-      brand TEXT NOT NULL,
-      name TEXT NOT NULL,
-      unit_barcode TEXT,
-      case_barcode TEXT,
-      is_shared_barcode INTEGER DEFAULT 0,
-      pack_size INTEGER DEFAULT 1,
-      current_stock INTEGER DEFAULT 0,
-      reorder_level INTEGER DEFAULT 5,
-      cost_price REAL DEFAULT 0.00,
-      retail_price REAL DEFAULT 0.00,
-      updated_at TEXT
-    );
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sku TEXT UNIQUE NOT NULL,
+        category TEXT NOT NULL,
+        brand TEXT NOT NULL,
+        name TEXT NOT NULL,
+        unit_barcode TEXT,
+        case_barcode TEXT,
+        is_shared_barcode INTEGER DEFAULT 0,
+        pack_size INTEGER DEFAULT 1,
+        current_stock INTEGER DEFAULT 0,
+        reorder_level INTEGER DEFAULT 5,
+        cost_price REAL DEFAULT 0.00,
+        retail_price REAL DEFAULT 0.00,
+        updated_at TEXT
+      );
+    `).run();
 
-    CREATE TABLE IF NOT EXISTS deliveries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      item_id INTEGER,
-      item_name TEXT,
-      barcode_scanned TEXT,
-      is_case_scan INTEGER,
-      cases_received INTEGER,
-      units_added INTEGER,
-      received_at TEXT
-    );
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS deliveries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER,
+        item_name TEXT,
+        barcode_scanned TEXT,
+        is_case_scan INTEGER,
+        cases_received INTEGER,
+        units_added INTEGER,
+        received_at TEXT
+      );
+    `).run();
 
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      item_id INTEGER,
-      item_name TEXT,
-      system_stock INTEGER,
-      counted_stock INTEGER,
-      variance INTEGER,
-      audited_at TEXT
-    );
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id INTEGER,
+        item_name TEXT,
+        system_stock INTEGER,
+        counted_stock INTEGER,
+        variance INTEGER,
+        audited_at TEXT
+      );
+    `).run();
 
-    CREATE TABLE IF NOT EXISTS pos_imports (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      filename TEXT,
-      total_sales_deducted INTEGER,
-      prices_updated INTEGER,
-      new_items_added INTEGER,
-      imported_at TEXT
-    );
-  `);
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS pos_imports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename TEXT,
+        total_sales_deducted INTEGER,
+        prices_updated INTEGER,
+        new_items_added INTEGER,
+        imported_at TEXT
+      );
+    `).run();
+  } catch (e) {
+    console.log("Table init notice:", e.message);
+  }
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
 }
 
 function corsHeaders() {
