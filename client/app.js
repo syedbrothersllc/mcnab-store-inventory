@@ -512,13 +512,15 @@ async function handlePOSFileUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
 
-  const formData = new FormData();
-  formData.append('pos_file', file);
-
   try {
+    const csvText = await file.text();
     const res = await fetch('/api/pos/upload-preview', {
       method: 'POST',
-      body: formData
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        csv_text: csvText,
+        filename: file.name
+      })
     });
     const data = await res.json();
 
@@ -883,13 +885,15 @@ async function uploadFullPricebook(event) {
   if (statusSubtext) statusSubtext.innerText = 'Parsing SKUs, barcodes, departments, and prices...';
   if (uploadBtn) uploadBtn.disabled = true;
 
-  const formData = new FormData();
-  formData.append('pricebook_file', file);
-
   try {
+    const csvText = await file.text();
     const res = await fetch('/api/pricebook/upload', {
       method: 'POST',
-      body: formData
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        csv_text: csvText,
+        filename: file.name
+      })
     });
     const data = await res.json();
 
