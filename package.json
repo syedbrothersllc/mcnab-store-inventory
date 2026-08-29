@@ -5,7 +5,8 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "node --watch server/server.js"
+    "dev": "node --watch server/server.js",
+    "deploy": "wrangler pages deploy client"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
